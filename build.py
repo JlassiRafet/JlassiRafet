@@ -1,5 +1,5 @@
 """Builds profile.svg: animated terminal-style GitHub card. Needs `gh` (GH_TOKEN) and python3 only."""
-import base64, re, subprocess, json, datetime, pathlib
+import math, base64, re, subprocess, json, datetime, pathlib
 
 D = pathlib.Path(__file__).parent
 A = D / "assets"
@@ -45,7 +45,8 @@ for r in repos:
         tot[n] = tot.get(n, 0) + e["size"]
         col[n] = e["node"]["color"]
 S = sum(tot.values())
-pct = [(n, round(100 * v / S), col[n]) for n, v in sorted(tot.items(), key=lambda x: -x[1])[:5]]
+LANGC = ["#9890F3", "#C2B45A", "#7F5DBC", "#B8B2FA", "#5a4d9a"]  # fruit palette by rank, not GitHub colours
+pct = [(n, round(100 * v / S), LANGC[i]) for i, (n, v) in enumerate(sorted(tot.items(), key=lambda x: -x[1])[:5])]
 
 # activity
 cal = cc["contributionCalendar"]
@@ -68,8 +69,9 @@ img = base64.b64encode((A / "wanted.jpg").read_bytes()).decode()
 icon = lambda s: re.search(r' d="([^"]+)"', (A / f"{s}.svg").read_text()).group(1)
 
 W, H = 904, 1125
-RED, YEL, ORG, DIM, TXT = "#e03c4b", "#f0b429", "#e8572a", "#6f6f6f", "#d8d8d8"
-HEAT = ["#262626", "#5a2228", "#8f2a35", "#c93445", "#ff4d5e"]
+# Gum-Gum fruit palette: body #9890F3, mid #7F6BCA, shadow #7F5DBC, outline #2A2760, stem olive-gold
+RED, YEL, ORG, DIM, TXT = "#9890F3", "#C2B45A", "#B8B2FA", "#8c88b8", "#e6e3f8"
+HEAT = ["#242040", "#4a3f8f", "#6b58b8", "#9890F3", "#cfc9ff"]
 o = []
 a_ = o.append
 
@@ -80,6 +82,8 @@ a_('''<style>
 .fl{animation:fl 3.6s ease-in-out infinite}
 @keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .kb{transform-box:fill-box;transform-origin:center;animation:kb 12s ease-in-out infinite}
+.sp{transform-box:fill-box;transform-origin:center;animation:spin 40s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 @keyframes kb{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
 .cv{transform-box:fill-box;transform-origin:right;animation:wipe 1.4s cubic-bezier(.65,0,.25,1) both}
 @keyframes wipe{to{transform:scaleX(0)}}
@@ -96,10 +100,10 @@ a_('''<style>
 @media (prefers-reduced-motion:reduce){*{animation:none!important}.p,.c{opacity:1!important}.cv,.glw{display:none}}
 </style>''')
 a_('<defs><linearGradient id="py" x1="0" y1="0" x2="1" y2="1"><stop offset=".45" stop-color="#4B8BBE"/><stop offset=".55" stop-color="#FFD43B"/></linearGradient>'
-   '<linearGradient id="gl"><stop offset="0" stop-color="#ff8a94" stop-opacity="0"/><stop offset=".5" stop-color="#ffb3ba"/><stop offset="1" stop-color="#ff8a94" stop-opacity="0"/></linearGradient>'
+   '<linearGradient id="gl"><stop offset="0" stop-color="#b8b2fa" stop-opacity="0"/><stop offset=".5" stop-color="#e2dfff"/><stop offset="1" stop-color="#b8b2fa" stop-opacity="0"/></linearGradient>'
    '<clipPath id="pc"><rect x="38" y="133" width="269" height="402"/></clipPath>'
    '<clipPath id="rl"><rect x="38" y="1109" width="838" height="4"/></clipPath></defs>')
-a_(f'<rect width="{W}" height="{H}" fill="#0d0d0d"/><rect x=".5" y=".5" width="{W-1}" height="{H-1}" fill="none" stroke="#222"/>')
+a_(f'<rect width="{W}" height="{H}" fill="#0e0c1c"/><rect x=".5" y=".5" width="{W-1}" height="{H-1}" fill="none" stroke="#2A2760"/>')
 
 
 def sec(delay, cls="p"):
@@ -109,19 +113,19 @@ def sec(delay, cls="p"):
 end = lambda: a_("</g>")
 
 
-def panel(x, y, w, h, fill="#1b1b1b"):
+def panel(x, y, w, h, fill="#181630"):
     a_(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{fill}"/>')
 
 
 def lead(x1, x2, y, label, val, vcol=TXT, lcol=YEL):
     a_(f'<text x="{x1}" y="{y}" font-size="15" fill="{lcol}">. {label}:</text>')
     a_(f'<text x="{x2}" y="{y}" font-size="15" fill="{vcol}" text-anchor="end">{val}</text>')
-    a_(f'<line x1="{x1+(len(label)+4)*9.1}" x2="{x2-len(val)*9.1-8}" y1="{y-4}" y2="{y-4}" stroke="#444" stroke-dasharray="1 5" stroke-linecap="round"/>')
+    a_(f'<line x1="{x1+(len(label)+4)*9.1}" x2="{x2-len(val)*9.1-8}" y1="{y-4}" y2="{y-4}" stroke="#3b3770" stroke-dasharray="1 5" stroke-linecap="round"/>')
 
 
 def head(x1, x2, y, t):
     a_(f'<text x="{x1}" y="{y}" font-size="15" fill="{RED}">— {t} </text>')
-    a_(f'<line x1="{x1+(len(t)+3)*9.1}" x2="{x2}" y1="{y-5}" y2="{y-5}" stroke="#555"/>')
+    a_(f'<line x1="{x1+(len(t)+3)*9.1}" x2="{x2}" y1="{y-5}" y2="{y-5}" stroke="#4a4585"/>')
 
 
 label = lambda x, y, t: a_(f'<text x="{x}" y="{y}" font-size="12" fill="{DIM}" letter-spacing="3">{t}</text>')
@@ -131,8 +135,10 @@ sec(0)
 panel(38, 28, 838, 96)
 a_('<text x="64" y="76" font-size="32" fill="#fff" letter-spacing="1">JoyBoy</text>')
 a_(f'<text x="64" y="106" font-size="15" fill="{RED}">@{U}</text>')
-a_('<rect class="ty" x="62" y="92" width="130" height="18" fill="#1b1b1b"/>')
+a_('<rect class="ty" x="62" y="92" width="130" height="18" fill="#181630"/>')
 a_(f'<rect class="cu" x="64" y="93" width="9" height="16" fill="{RED}"/>')
+sw = "M" + " L".join(f"{800 + r*math.cos(t):.1f} {76 + r*math.sin(t):.1f}" for t in [i * .2 for i in range(0, 90)] for r in [2 + t * 2.1])
+a_(f'<path class="sp" d="{sw}" fill="none" stroke="{RED}" stroke-width="3" stroke-linecap="round" opacity=".45"/>')
 end()
 
 # poster
@@ -162,8 +168,8 @@ end()
 sec(.45)
 panel(316, 433, 560, 102)
 label(342, 467, "[ TECHNOLOGIES &amp; SKILLS ]")
-tiles = [("github", "#1f2430", "#ffffff"), ("linux", "#1f2430", "#FCC624"), ("gnubash", "#1f2430", "#e6e6e6"),
-         ("postgresql", "#1f2430", "#5B9BD5"), ("rust", "#E43716", "#ffffff"), ("python", "#1f2430", "url(#py)"), ("c", "#3D4DA5", "#ffffff")]
+tiles = [("github", "#241f45", "#ffffff"), ("linux", "#241f45", "#FCC624"), ("gnubash", "#241f45", "#e6e6e6"),
+         ("postgresql", "#241f45", "#5B9BD5"), ("rust", "#E43716", "#ffffff"), ("python", "#241f45", "url(#py)"), ("c", "#3D4DA5", "#ffffff")]
 for i, (s, bg, fg) in enumerate(tiles):
     x = 342 + i * 50
     a_(f'<g class="fl" style="animation-delay:-{i*.5}s"><rect x="{x}" y="481" width="42" height="42" rx="10" fill="{bg}"/>'
@@ -179,7 +185,7 @@ for i, (n, p, c) in enumerate(pct):
     w = bw * p / tp
     a_(f'<rect x="{x:.1f}" y="598" width="{w:.1f}" height="8" fill="{c}" rx="{4 if i in (0, len(pct)-1) else 0}"/>')
     x += w
-a_('<rect class="cv" style="animation-delay:.9s" x="62" y="596" width="791" height="12" fill="#1b1b1b"/>')
+a_('<rect class="cv" style="animation-delay:.9s" x="62" y="596" width="791" height="12" fill="#181630"/>')
 for i, (n, p, c) in enumerate(pct):
     cx, cy = 64 + (i % 2) * 394, 630 + (i // 2) * 26
     a_(f'<circle cx="{cx+5}" cy="{cy-4}" r="4.5" fill="{c}"/><text x="{cx+17}" y="{cy}" font-size="13" fill="{TXT}">{n} <tspan fill="{DIM}">{p}%</tspan></text>')
@@ -189,11 +195,11 @@ end()
 sec(.75)
 panel(38, 723, 838, 124)
 label(64, 753, "[ FEATURED REPOSITORIES ]")
-a_(f'<rect x="64" y="770" width="787" height="62" fill="#222"/><rect x="64" y="770" width="3" height="62" fill="{RED}"/>')
+a_(f'<rect x="64" y="770" width="787" height="62" fill="#201d3d"/><rect x="64" y="770" width="3" height="62" fill="{RED}"/>')
 desc = repo["description"] or ""
 desc = (desc if len(desc) <= 92 else desc[:91].rstrip() + "…").replace("&", "&amp;")
 a_(f'<text x="78" y="792" font-size="13" fill="{RED}">{repo["name"]}</text>')
-a_(f'<text x="78" y="811" font-size="11" fill="#8a8a8a">{desc}</text>')
+a_(f'<text x="78" y="811" font-size="11" fill="#9a96c4">{desc}</text>')
 a_(f'<text x="78" y="826" font-size="11" fill="{RED}">{repo["language"]} • {repo["stargazers_count"]}</text>')
 end()
 
