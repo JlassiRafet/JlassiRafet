@@ -1,0 +1,25 @@
+name: update-card
+on:
+  schedule: [{cron: "17 */6 * * *"}]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Needs a PAT (repo + read:user) in secret GH_PAT so private repos count; skipped without it.
+    env:
+      PAT: ${{ secrets.GH_PAT }}
+    steps:
+      - if: env.PAT != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - if: env.PAT != ''
+        run: python3 build.py
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+      - if: env.PAT != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add profile.svg
+          if ! git diff --cached --quiet; then git commit -m "Updated: profile card" && git push; fi
